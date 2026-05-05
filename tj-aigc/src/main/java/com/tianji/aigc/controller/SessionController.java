@@ -24,7 +24,6 @@ public class SessionController {
 
     /**
      * 获取热门会话
-     *
      * @return 热门会话列表
      */
     @GetMapping("/hot")

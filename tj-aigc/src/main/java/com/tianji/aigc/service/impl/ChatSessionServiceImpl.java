@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 聊天会话服务实现类
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,13 +26,14 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
 
     private final SessionProperties sessionProperties;
 
+    /** 创建新的聊天会话 */
     @Override
     public SessionVO createSession(Integer num) {
         var sessionVO = BeanUtil.toBean(sessionProperties, SessionVO.class);
-        // 随机获取examples
+        // 随机获取指定数量的示例
         sessionVO.setExamples(RandomUtil.randomEleList(sessionProperties.getExamples(), num));
 
-        // 随机生成sessionId
+        // 随机生成唯一会话ID
         sessionVO.setSessionId(IdUtil.fastSimpleUUID());
 
         // 构建持久化对象，并持久化
@@ -42,10 +46,7 @@ public class ChatSessionServiceImpl extends ServiceImpl<ChatSessionMapper, ChatS
         return sessionVO;
     }
 
-    /**
-     * 获取热门会话
-     * @return 热门会话列表
-     */
+    /** 获取热门会话示例 */
     @Override
     public List<SessionVO.Example> hotExamples(Integer num) {
         return RandomUtil.randomEleList(sessionProperties.getExamples(), num);
