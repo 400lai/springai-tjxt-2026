@@ -1,5 +1,7 @@
 package com.tianji.aigc.service.impl;
 
+import cn.hutool.core.date.DateUtil;
+import com.tianji.aigc.config.SystemPromptConfig;
 import com.tianji.aigc.enums.ChatEventTypeEnum;
 import com.tianji.aigc.service.ChatService;
 import com.tianji.aigc.vo.ChatEventVO;
@@ -18,11 +20,16 @@ import reactor.core.publisher.Flux;
 public class ChatServiceImpl implements ChatService {
 
     private final ChatClient chatClient;
+    private final SystemPromptConfig systemPromptConfig;
 
     /** 处理用户问题并返回流式响应 */
     @Override
     public Flux<ChatEventVO> chat(String question, String sessionId) {
         return this.chatClient.prompt()
+                .system(promptSystem -> promptSystem
+                        .text(this.systemPromptConfig.getChatSystemMessage().get()) // 设置系统提示语
+                        .param("now", DateUtil.now()) // 设置当前时间的参数
+                )
                 .user(question)
                 .stream()
                 .chatResponse() // 获取大模型返回的流式响应（Flux<ChatResponse>）
