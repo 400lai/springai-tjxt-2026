@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 聊天请求数据传输对象
+ */
 @Data
 @Builder
 @NoArgsConstructor

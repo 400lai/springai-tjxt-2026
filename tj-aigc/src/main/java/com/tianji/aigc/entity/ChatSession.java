@@ -11,13 +11,16 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 聊天会话实体类
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @TableName("chat_session")
 public class ChatSession implements Serializable {
-    /** 数据id */
+    /** 数据主键ID，使用雪花算法自动生成 */
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 

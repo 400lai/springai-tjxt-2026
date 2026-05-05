@@ -8,6 +8,7 @@ import com.tianji.aigc.vo.ChatEventVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -22,7 +23,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
+    /** Spring AI聊天客户端，用于与大模型进行交互 */
     private final ChatClient chatClient;
+    /** 系统提示词配置，定义AI助手的行为和角色 */
     private final SystemPromptConfig systemPromptConfig;
     // 存储大模型的生成状态，这里采用ConcurrentHashMap是确保线程安全
     // 目前的版本暂时用Map实现，如果考虑分布式环境的话，可以考虑用redis来实现
@@ -31,11 +34,14 @@ public class ChatServiceImpl implements ChatService {
     /** 处理用户问题并返回流式响应 */
     @Override
     public Flux<ChatEventVO> chat(String question, String sessionId) {
+        // 将会话id转换为对话id
+        var conversationId = ChatService.getConversationId(sessionId);
         return this.chatClient.prompt()
                 .system(promptSystem -> promptSystem
                         .text(this.systemPromptConfig.getChatSystemMessage().get()) // 设置系统提示语
                         .param("now", DateUtil.now()) // 设置当前时间的参数
                 )
+                .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .user(question)
                 .stream()
                 .chatResponse() // 获取大模型返回的流式响应（Flux<ChatResponse>）
