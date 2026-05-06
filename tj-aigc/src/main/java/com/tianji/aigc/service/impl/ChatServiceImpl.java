@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -30,9 +31,19 @@ public class ChatServiceImpl implements ChatService {
     private final SystemPromptConfig systemPromptConfig;
     /** 聊天记忆对象，用于管理和持久化对话历史 */
     private final ChatMemory chatMemory;
-    // 存储大模型的生成状态，这里采用ConcurrentHashMap是确保线程安全
-    // 目前的版本暂时用Map实现，如果考虑分布式环境的话，可以考虑用redis来实现
-    private static final Map<String, Boolean> GENERATE_STATUS = new ConcurrentHashMap<>();
+
+    /**
+     * 通过一个容器，保存当前会话的会话id 以及 是否继续生成的标识，用于后续停止会话
+     * 容器实现：
+     * 1、使用Map(采用ConcurrentHashMap是确保线程安全)
+     * 2、考虑到分布式场景，需要使用redis
+     */
+    // private static final Map<String, Boolean> GENERATE_STATUS = new ConcurrentHashMap<>();
+
+    /** Redis模板对象，用于管理会话的生成状态 */
+    private final StringRedisTemplate stringRedisTemplate;
+    /** Redis中存储生成状态的Hash键名 */
+    private static final String GENERATE_STATUS_KEY = "GENERATE_STATUS";
 
     /** 处理用户问题并返回流式响应 */
     @Override
@@ -41,6 +52,7 @@ public class ChatServiceImpl implements ChatService {
         var conversationId = ChatService.getConversationId(sessionId);
         // 大模型输出内容的缓存器，用于在输出中断后的数据存储
         var outputBuilder = new StringBuilder();
+        var hashOps = stringRedisTemplate.boundHashOps(GENERATE_STATUS_KEY);
 
         return this.chatClient.prompt()
                 .system(promptSystem -> promptSystem
@@ -51,15 +63,15 @@ public class ChatServiceImpl implements ChatService {
                 .user(question)
                 .stream()
                 .chatResponse() // 获取大模型返回的流式响应（Flux<ChatResponse>）
-                .doFirst(() -> GENERATE_STATUS.put(sessionId, true)) // 第一次输出内容时执行
-                .doOnError(throwable -> GENERATE_STATUS.remove(sessionId)) // 出现异常时，删除标识
+                .doFirst(() -> hashOps.put(sessionId, "true")) // 第一次输出内容时执行
+                .doOnError(throwable -> hashOps.delete(sessionId)) // 出现异常时，删除标识
                 .doOnCancel(() -> {
                     // 当输出被取消时，保存输出的内容到历史记录中
                     this.saveStopHistoryRecord(conversationId, outputBuilder.toString());
                 })
-                .doOnComplete(() -> GENERATE_STATUS.remove(sessionId)) // 完成时执行，删除标识
+                .doOnComplete(() -> hashOps.delete(sessionId)) // 完成时执行，删除标识
                 .takeWhile(response -> { // 通过返回值来控制Flux流是否继续，true：继续，false：终止
-                    return GENERATE_STATUS.getOrDefault(sessionId, false);
+                    return hashOps.get(sessionId) != null;
                 })
                 .map(chatResponse -> {
                     // 获取大模型的输出的文本片段内容
@@ -89,7 +101,7 @@ public class ChatServiceImpl implements ChatService {
     /** 移除会话的生成状态标记，终止流式响应 */
     @Override
     public void stop(String sessionId) {
-        // 移除标记
-        GENERATE_STATUS.remove(sessionId);
+        var hashOps = stringRedisTemplate.boundHashOps(GENERATE_STATUS_KEY);
+        hashOps.delete(sessionId);
     }
 }
