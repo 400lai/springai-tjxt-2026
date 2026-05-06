@@ -1,6 +1,7 @@
 package com.tianji.aigc.config;
 
 import com.tianji.aigc.memory.RedisChatMemoryRepository;
+import com.tianji.aigc.memory.jdbc.JdbcChatMemoryRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -9,6 +10,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -38,10 +40,20 @@ public class SpringAIConfig {
         return new SimpleLoggerAdvisor();
     }
 
-    /** 创建基于Redis的聊天记忆存储库 */
+    /** 创建基于 Redis 的聊天记忆存储库 Bean */
+    /** 当配置文件 tj.ai.memory.type 值为 Redis 时自动注入 */
     @Bean
+    @ConditionalOnProperty(prefix = "tj.ai.memory", value = "type", havingValue = "Redis")
     public ChatMemoryRepository redisChatMemoryRepository() {
         return new RedisChatMemoryRepository();
+    }
+
+    /** 创建基于 JDBC 的聊天记忆存储库 Bean */
+    /** 当配置文件 tj.ai.memory.type 值为 Mysql 时自动注入 */
+    @Bean
+    @ConditionalOnProperty(prefix = "tj.ai.memory", value = "type", havingValue = "Mysql")
+    public ChatMemoryRepository jdbcChatMemoryRepository() {
+        return new JdbcChatMemoryRepository();
     }
 
     /** 创建聊天记忆窗口对象 */

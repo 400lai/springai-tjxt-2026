@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 基于Redis实现的ChatMemoryRepository
+ * 基于 Redis 的聊天记忆存储库实现类
  */
 public class RedisChatMemoryRepository implements ChatMemoryRepository {
     /** 默认Redis键前缀 */
